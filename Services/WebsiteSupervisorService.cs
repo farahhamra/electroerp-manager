@@ -67,10 +67,11 @@ public class WebsiteSupervisorService : IDisposable
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "node",
-                    Arguments = $"\"{viteBinPath}\" --port {port} --host localhost --strictPort",
+                    Arguments = $"\"{viteBinPath}\" --port {port} --host 0.0.0.0 --strictPort",
                     WorkingDirectory = websiteDir,
                     UseShellExecute = false,
                     CreateNoWindow = true,
+                    RedirectStandardInput = true,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true
                 };
@@ -151,7 +152,7 @@ public class WebsiteSupervisorService : IDisposable
                 return;
             }
 
-            if (CurrentState == ServerState.Stopped || CurrentState == ServerState.Stopping)
+            if (CurrentState == ServerState.Crashed || CurrentState == ServerState.Stopped || CurrentState == ServerState.Stopping)
             {
                 return;
             }
@@ -188,7 +189,8 @@ public class WebsiteSupervisorService : IDisposable
                 if (_isManualStop) return;
                 if (_websiteProcess == null || _websiteProcess.HasExited) return;
 
-                var ok = await PortChecker.IsPortListeningAsync("127.0.0.1", port);
+                var ok = await PortChecker.IsPortListeningAsync("127.0.0.1", port) ||
+                         await PortChecker.IsPortListeningAsync("localhost", port);
                 if (ok)
                 {
                     lock (_stateLock)
@@ -229,3 +231,4 @@ public class WebsiteSupervisorService : IDisposable
         GC.SuppressFinalize(this);
     }
 }
+
