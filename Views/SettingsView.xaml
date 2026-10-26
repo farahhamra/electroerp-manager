@@ -156,6 +156,40 @@
                 </StackPanel>
             </Border>
 
+            <!-- Website Location (Full Width) -->
+            <Border Background="{StaticResource BgSurfaceBrush}"
+                    BorderBrush="{StaticResource BorderMutedBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16,14"
+                    Margin="0,0,0,16">
+                <StackPanel>
+                    <TextBlock Text="Website Location"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="{StaticResource TextPrimaryBrush}" />
+                    <TextBlock Text="Premium Website Engine folder (electroerp-website)"
+                               FontSize="11"
+                               Foreground="{StaticResource TextMutedBrush}"
+                               Margin="0,2,0,8" />
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="WebsitePathBox"
+                                 Grid.Column="0"
+                                 Style="{StaticResource MinimalTextBoxStyle}"
+                                 Margin="0,0,8,0"
+                                 LostFocus="OnWebsitePathLostFocus" />
+                        <Button Grid.Column="1"
+                                Content="Browse"
+                                Style="{StaticResource GhostButtonStyle}"
+                                Click="OnBrowseWebsiteClick" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+
             <!-- ROW 3: Security & Maintenance (PIN & Database Backup) -->
             <Grid Margin="0,0,0,16">
                 <Grid.ColumnDefinitions>

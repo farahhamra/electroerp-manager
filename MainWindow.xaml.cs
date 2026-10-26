@@ -16,6 +16,7 @@ public partial class MainWindow : Window
     private readonly ErrorLogService _errorLogService;
     private readonly SystemTrayService _trayService;
     private readonly CloudflareTunnelService _tunnelService;
+    private readonly WebsiteSupervisorService? _websiteSupervisor;
 
     private readonly MainView _mainView;
     private readonly UpdaterView _updaterView;
@@ -32,7 +33,8 @@ public partial class MainWindow : Window
         ErrorLogService errorLogService,
         SystemTrayService trayService,
         CloudflareTunnelService tunnelService,
-        bool startMinimized = false)
+        bool startMinimized = false,
+        WebsiteSupervisorService? websiteSupervisor = null)
     {
         InitializeComponent();
 
@@ -43,9 +45,10 @@ public partial class MainWindow : Window
         _errorLogService = errorLogService;
         _trayService = trayService;
         _tunnelService = tunnelService;
+        _websiteSupervisor = websiteSupervisor;
 
         var backupService = new BackupService(_settingsService);
-        _mainView = new MainView(_supervisor, _pinAuthService, _errorLogService, _tunnelService);
+        _mainView = new MainView(_supervisor, _pinAuthService, _errorLogService, _tunnelService, _websiteSupervisor);
         _updaterView = new UpdaterView();
         _settingsView = new SettingsView(_settingsService, _pinAuthService, _startupService, backupService, _supervisor);
 
@@ -266,7 +269,9 @@ public partial class MainWindow : Window
     {
         Dispatcher.Invoke(() =>
         {
-            if (_supervisor.CurrentState == ServerState.Running || _tunnelService.IsOnline)
+            if (_supervisor.CurrentState == ServerState.Running ||
+                _tunnelService.IsOnline ||
+                _websiteSupervisor?.CurrentState == ServerState.Running)
             {
                 if (!ShowModalPin("Enter PIN to Stop Server & Exit", "Exit Application"))
                 {
@@ -274,6 +279,7 @@ public partial class MainWindow : Window
                 }
                 _supervisor.StopServer();
                 _tunnelService.StopTunnel();
+                _websiteSupervisor?.StopWebsite();
             }
 
             _isExplicitExit = true;

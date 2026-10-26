@@ -43,6 +43,7 @@ public partial class SettingsView : UserControl
         AutoRestartSwitch.IsChecked = _config.AutoRestartOnCrash;
         ServerPathBox.Text = _config.ServerDirectory;
         FrontendPathBox.Text = _config.FrontendDirectory;
+        WebsitePathBox.Text = _config.WebsiteDirectory;
 
         UpdateBackupStatusUI();
     }
@@ -199,6 +200,35 @@ public partial class SettingsView : UserControl
             _config.FrontendDirectory = dialog.SelectedPath;
             _settingsService.SaveSettings(_config);
             ShowNotice("Frontend path updated.");
+        }
+    }
+
+    private void OnWebsitePathLostFocus(object sender, RoutedEventArgs e)
+    {
+        var path = WebsitePathBox.Text.Trim();
+        if (path != _config.WebsiteDirectory)
+        {
+            _config.WebsiteDirectory = path;
+            _settingsService.SaveSettings(_config);
+            ShowNotice("Website path saved.");
+        }
+    }
+
+    private void OnBrowseWebsiteClick(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "Select Premium Website Engine Folder (electroerp-website)",
+            UseDescriptionForTitle = true,
+            InitialDirectory = Directory.Exists(_config.WebsiteDirectory) ? _config.WebsiteDirectory : AppContext.BaseDirectory
+        };
+
+        if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+        {
+            WebsitePathBox.Text = dialog.SelectedPath;
+            _config.WebsiteDirectory = dialog.SelectedPath;
+            _settingsService.SaveSettings(_config);
+            ShowNotice("Website path updated.");
         }
     }
 

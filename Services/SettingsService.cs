@@ -83,6 +83,7 @@ public class SettingsService
     {
         EnsureServerDirectory(config);
         EnsureFrontendDirectory(config);
+        EnsureWebsiteDirectory(config);
     }
 
     private void EnsureServerDirectory(AppConfig config)
@@ -144,6 +145,38 @@ public class SettingsService
         }
 
         // Fallback default
+        // Fallback default
         config.FrontendDirectory = Path.GetFullPath(Path.Combine(baseDir, "..", "frontend"));
+    }
+
+    private void EnsureWebsiteDirectory(AppConfig config)
+    {
+        if (!string.IsNullOrWhiteSpace(config.WebsiteDirectory) && Directory.Exists(config.WebsiteDirectory))
+        {
+            return;
+        }
+
+        var baseDir = AppContext.BaseDirectory;
+        var candidates = new[]
+        {
+            Path.GetFullPath(Path.Combine(baseDir, "..", "electroerp-website")),
+            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "electroerp-website")),
+            Path.GetFullPath(Path.Combine(baseDir, "..", "..", "..", "..", "..", "electroerp-website")),
+            Path.GetFullPath(Path.Combine(baseDir, "electroerp-website")),
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "electroerp-website")),
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "electroerp-website")),
+            Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "electroerp-website"))
+        };
+
+        foreach (var candidate in candidates)
+        {
+            if (Directory.Exists(candidate))
+            {
+                config.WebsiteDirectory = candidate;
+                return;
+            }
+        }
+
+        config.WebsiteDirectory = Path.GetFullPath(Path.Combine(baseDir, "..", "electroerp-website"));
     }
 }

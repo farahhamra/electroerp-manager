@@ -11,6 +11,7 @@ public partial class App : Application
     private SystemTrayService? _trayService;
     private ProcessSupervisorService? _supervisor;
     private CloudflareTunnelService? _tunnelService;
+    private WebsiteSupervisorService? _websiteSupervisor;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -54,6 +55,7 @@ public partial class App : Application
         var errorLogService = new ErrorLogService();
         _supervisor = new ProcessSupervisorService(settingsService, errorLogService);
         _tunnelService = new CloudflareTunnelService(errorLogService);
+        _websiteSupervisor = new WebsiteSupervisorService(settingsService, errorLogService);
         _trayService = new SystemTrayService();
 
         bool startMinimized = e.Args.Any(arg => arg.Equals("--minimized", StringComparison.OrdinalIgnoreCase));
@@ -66,7 +68,8 @@ public partial class App : Application
             errorLogService,
             _trayService,
             _tunnelService,
-            startMinimized);
+            startMinimized,
+            _websiteSupervisor);
 
         MainWindow = mainWindow;
 
@@ -96,6 +99,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _websiteSupervisor?.Dispose();
         _tunnelService?.Dispose();
         _supervisor?.Dispose();
         _trayService?.Dispose();

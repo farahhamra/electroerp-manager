@@ -40,9 +40,10 @@
             </StackPanel>
 
             <!-- Cloudflare Tunnel Status Display -->
+            <!-- Cloudflare Tunnel Status Display -->
             <StackPanel Orientation="Horizontal"
                         HorizontalAlignment="Center"
-                        Margin="0,0,0,22">
+                        Margin="0,0,0,6">
                 <Ellipse x:Name="TunnelStatusDot"
                          Width="8" Height="8"
                          Fill="{StaticResource StatusStoppedBrush}"
@@ -50,6 +51,21 @@
                          Margin="0,0,8,0" />
                 <TextBlock x:Name="TunnelStatusLabel"
                            Text="Tunnel (electroerp-prod): Offline"
+                           FontSize="12"
+                           Foreground="{StaticResource TextMutedBrush}" />
+            </StackPanel>
+
+            <!-- Website Engine Status Display -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Margin="0,0,0,22">
+                <Ellipse x:Name="WebsiteStatusDot"
+                         Width="8" Height="8"
+                         Fill="{StaticResource StatusStoppedBrush}"
+                         VerticalAlignment="Center"
+                         Margin="0,0,8,0" />
+                <TextBlock x:Name="WebsiteStatusLabel"
+                           Text="Website (localhost:3001): Stopped"
                            FontSize="12"
                            Foreground="{StaticResource TextMutedBrush}" />
             </StackPanel>
@@ -96,6 +112,32 @@
                         <Run Text="Open " Foreground="{StaticResource TextPrimaryBrush}" />
                         <Run Text="ElectroERP" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
                         <Run Text=" App" Foreground="{StaticResource TextPrimaryBrush}" />
+                    </TextBlock>
+                </Button>
+            </StackPanel>
+
+            <!-- Website Actions: Launch/Stop Website & Open Website -->
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Center"
+                        Margin="0,10,0,0">
+                <Button x:Name="WebsiteActionButton"
+                        Content="Launch Website"
+                        Style="{StaticResource GhostButtonStyle}"
+                        MinWidth="160"
+                        Height="38"
+                        Click="OnWebsiteActionClick" />
+
+                <Button x:Name="OpenWebsiteButton"
+                        Style="{StaticResource GhostButtonStyle}"
+                        MinWidth="170"
+                        Height="38"
+                        Margin="10,0,0,0"
+                        Visibility="Collapsed"
+                        Click="OnOpenWebsiteClick">
+                    <TextBlock FontSize="12">
+                        <Run Text="Open " Foreground="{StaticResource TextPrimaryBrush}" />
+                        <Run Text="Website" Foreground="{StaticResource AccentBrush}" FontWeight="SemiBold" />
+                        <Run Text=" (:3001)" Foreground="{StaticResource TextPrimaryBrush}" />
                     </TextBlock>
                 </Button>
             </StackPanel>

@@ -97,3 +97,4 @@ ElectroERP Manager actively supervises the output streams of the ElectroERP serv
 
 - **Host Environment**: Deployed locally on the dedicated server PC hosting ElectroERP.
 - **Users**: Business administrators, store managers, and technicians who oversee the local ERP server infrastructure.
+- **Website Engine Supervision (`WebsiteSupervisorService`)**: Manages the organization's **Premium Website Engine** (`electroerp-website`) on `http://localhost:3001` with Windows JobObject process binding, 6-digit PIN-guarded Launch/Stop Website controls, Open Website browser button, and configurable Website Location directory in Settings.

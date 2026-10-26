@@ -12,12 +12,14 @@ public partial class MainView : UserControl
     private readonly PinAuthService _pinAuthService;
     private readonly ErrorLogService _errorLogService;
     private readonly CloudflareTunnelService _tunnelService;
+    private readonly WebsiteSupervisorService? _websiteSupervisor;
 
     public MainView(
         ProcessSupervisorService supervisor,
         PinAuthService pinAuthService,
         ErrorLogService errorLogService,
-        CloudflareTunnelService tunnelService)
+        CloudflareTunnelService tunnelService,
+        WebsiteSupervisorService? websiteSupervisor = null)
     {
         InitializeComponent();
 
@@ -25,17 +27,31 @@ public partial class MainView : UserControl
         _pinAuthService = pinAuthService;
         _errorLogService = errorLogService;
         _tunnelService = tunnelService;
+        _websiteSupervisor = websiteSupervisor;
 
         _supervisor.StateChanged += OnStateChanged;
         _errorLogService.ErrorLogged += OnErrorLogged;
         _tunnelService.OnlineStateChanged += OnTunnelOnlineChanged;
+        if (_websiteSupervisor != null)
+        {
+            _websiteSupervisor.StateChanged += OnWebsiteStateChanged;
+        }
 
         Loaded += (_, _) =>
         {
             UpdateStateUI(_supervisor.CurrentState);
             UpdateTunnelUI(_tunnelService.IsOnline);
+            if (_websiteSupervisor != null)
+            {
+                UpdateWebsiteUI(_websiteSupervisor.CurrentState);
+            }
             RefreshErrorDisplay();
         };
+    }
+
+    private void OnWebsiteStateChanged(ServerState state)
+    {
+        Dispatcher.Invoke(() => UpdateWebsiteUI(state));
     }
 
     private void OnStateChanged(ServerState state)
@@ -140,6 +156,113 @@ public partial class MainView : UserControl
             TunnelStatusLabel.Foreground = mutedBrush;
             OnlineTunnelButton.Content = "Go Online";
             OnlineTunnelButton.BorderBrush = borderMutedBrush;
+        }
+    }
+
+    private void UpdateWebsiteUI(ServerState state)
+    {
+        var runningBrush = (Brush)FindResource("StatusRunningBrush");
+        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
+        var stopActionBrush = (Brush)FindResource("ActionStopBrush");
+        var accentBrush = (Brush)FindResource("AccentBrush");
+        var mutedBrush = (Brush)FindResource("TextMutedBrush");
+        var borderMutedBrush = (Brush)FindResource("BorderMutedBrush");
+        var port = _websiteSupervisor?.GetWebsitePort() ?? 3001;
+
+        var isRunning = state == ServerState.Running;
+        OpenWebsiteButton.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
+
+        switch (state)
+        {
+            case ServerState.Running:
+                WebsiteStatusDot.Fill = runningBrush;
+                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Running";
+                WebsiteStatusLabel.Foreground = runningBrush;
+                WebsiteActionButton.Content = "Stop Website";
+                WebsiteActionButton.BorderBrush = runningBrush;
+                WebsiteActionButton.IsEnabled = true;
+                break;
+
+            case ServerState.Starting:
+                WebsiteStatusDot.Fill = accentBrush;
+                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Starting...";
+                WebsiteStatusLabel.Foreground = mutedBrush;
+                WebsiteActionButton.Content = "Starting Website...";
+                WebsiteActionButton.IsEnabled = false;
+                break;
+
+            case ServerState.Stopping:
+                WebsiteStatusDot.Fill = stoppedBrush;
+                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Stopping...";
+                WebsiteStatusLabel.Foreground = mutedBrush;
+                WebsiteActionButton.Content = "Stopping Website...";
+                WebsiteActionButton.IsEnabled = false;
+                break;
+
+            case ServerState.Crashed:
+                WebsiteStatusDot.Fill = stopActionBrush;
+                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Crashed";
+                WebsiteStatusLabel.Foreground = stopActionBrush;
+                WebsiteActionButton.Content = "Launch Website";
+                WebsiteActionButton.BorderBrush = borderMutedBrush;
+                WebsiteActionButton.IsEnabled = true;
+                break;
+
+            case ServerState.Stopped:
+            default:
+                WebsiteStatusDot.Fill = stoppedBrush;
+                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Stopped";
+                WebsiteStatusLabel.Foreground = mutedBrush;
+                WebsiteActionButton.Content = "Launch Website";
+                WebsiteActionButton.BorderBrush = borderMutedBrush;
+                WebsiteActionButton.IsEnabled = true;
+                break;
+        }
+    }
+
+    private void OnWebsiteActionClick(object sender, RoutedEventArgs e)
+    {
+        if (_websiteSupervisor == null) return;
+
+        var isRunning = _websiteSupervisor.CurrentState == ServerState.Running;
+        var prompt = isRunning
+            ? "Enter your 6-digit PIN to stop Website"
+            : "Enter your 6-digit PIN to launch Website";
+        var title = isRunning ? "Stop Website" : "Launch Website";
+
+        if (!PromptPin(prompt, title))
+        {
+            return;
+        }
+
+        if (isRunning)
+        {
+            _websiteSupervisor.StopWebsite();
+        }
+        else
+        {
+            var (success, error) = _websiteSupervisor.StartWebsite();
+            if (!success && !string.IsNullOrEmpty(error))
+            {
+                MessageBox.Show(error, "Website Startup Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
+    }
+
+    private void OnOpenWebsiteClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var port = _websiteSupervisor?.GetWebsitePort() ?? 3001;
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = $"http://localhost:{port}",
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to launch web browser: {ex.Message}", "Browser Error", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
