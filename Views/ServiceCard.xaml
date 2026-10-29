@@ -1,0 +1,113 @@
+<UserControl x:Class="ElectroERP.Manager.Views.ServiceCard"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/ElectroERP.Manager;component/Styles/Colors.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/ElectroERP.Manager;component/Styles/Controls.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Border x:Name="CardBorder"
+            Background="{StaticResource BgSurfaceBrush}"
+            BorderBrush="{StaticResource BorderMutedBrush}"
+            BorderThickness="1"
+            CornerRadius="10"
+            Padding="20,18"
+            Margin="6">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <!-- Service Title -->
+            <TextBlock x:Name="CardTitleText"
+                       Grid.Row="0"
+                       Text="Service"
+                       FontSize="14"
+                       FontWeight="SemiBold"
+                       Foreground="{StaticResource TextPrimaryBrush}"
+                       Margin="0,0,0,10" />
+
+            <!-- Status Indicator Row -->
+            <StackPanel Grid.Row="1"
+                        Orientation="Horizontal"
+                        Margin="0,0,0,6">
+                <Ellipse x:Name="StatusDot"
+                         Width="9" Height="9"
+                         Fill="{StaticResource StatusStoppedBrush}"
+                         VerticalAlignment="Center"
+                         Margin="0,0,8,0" />
+                <TextBlock x:Name="StatusText"
+                           Text="Stopped"
+                           FontSize="13"
+                           FontWeight="Medium"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+
+            <!-- Endpoint / Address Row -->
+            <TextBlock x:Name="AddressText"
+                       Grid.Row="2"
+                       Text="localhost:3000"
+                       FontFamily="Consolas, Cascadia Code, Courier New"
+                       FontSize="12"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,0,6" />
+
+            <!-- Dependency Hint Row (Fixed height slot so card layout never jumps) -->
+            <TextBlock x:Name="DependencyHintText"
+                       Grid.Row="3"
+                       Text=""
+                       FontSize="11"
+                       MinHeight="16"
+                       Foreground="{StaticResource TextMutedBrush}"
+                       TextWrapping="NoWrap"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,0,0,12" />
+
+            <!-- Action Buttons Row -->
+            <Grid Grid.Row="5" Margin="0,0,0,12">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="PrimaryButton"
+                        Grid.Column="0"
+                        Content="Launch"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        Height="38"
+                        Padding="14,6"
+                        Click="OnPrimaryButtonClick" />
+
+                <Button x:Name="SecondaryButton"
+                        Grid.Column="1"
+                        Content="Restart"
+                        Style="{StaticResource GhostButtonStyle}"
+                        Height="38"
+                        Padding="14,6"
+                        Margin="8,0,0,0"
+                        Visibility="Collapsed"
+                        Click="OnSecondaryButtonClick" />
+            </Grid>
+
+            <!-- Footer Link Action -->
+            <Button x:Name="LinkActionButton"
+                    Grid.Row="6"
+                    Content="Open ↗"
+                    Style="{StaticResource LinkButtonStyle}"
+                    Click="OnLinkActionButtonClick" />
+        </Grid>
+    </Border>
+</UserControl>

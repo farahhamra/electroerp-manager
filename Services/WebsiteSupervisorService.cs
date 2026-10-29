@@ -67,7 +67,7 @@ public class WebsiteSupervisorService : IDisposable
                 var startInfo = new ProcessStartInfo
                 {
                     FileName = "node",
-                    Arguments = $"\"{viteBinPath}\" --port {port} --host 0.0.0.0 --strictPort",
+                    Arguments = $"\"{viteBinPath}\" --port {port} --host 0.0.0.0 --strictPort --base /store/",
                     WorkingDirectory = websiteDir,
                     UseShellExecute = false,
                     CreateNoWindow = true,

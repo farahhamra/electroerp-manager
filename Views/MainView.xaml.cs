@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -13,6 +14,8 @@ public partial class MainView : UserControl
     private readonly ErrorLogService _errorLogService;
     private readonly CloudflareTunnelService _tunnelService;
     private readonly WebsiteSupervisorService? _websiteSupervisor;
+    private readonly string _appVersion;
+    private bool _isDiagnosticsExpanded;
 
     public MainView(
         ProcessSupervisorService supervisor,
@@ -29,6 +32,14 @@ public partial class MainView : UserControl
         _tunnelService = tunnelService;
         _websiteSupervisor = websiteSupervisor;
 
+        var rawVersion = Assembly.GetExecutingAssembly().GetName().Version;
+        _appVersion = rawVersion != null && (rawVersion.Major > 1 || rawVersion.Minor > 0)
+            ? $"v{rawVersion.Major}.{rawVersion.Minor}.{rawVersion.Build}"
+            : "v1.4.2";
+
+        OnlineAccessCard.Address = $"{CloudflareTunnelService.TunnelName}.electroerp.app";
+        WebsiteCard.Address = "/store";
+
         _supervisor.StateChanged += OnStateChanged;
         _errorLogService.ErrorLogged += OnErrorLogged;
         _tunnelService.OnlineStateChanged += OnTunnelOnlineChanged;
@@ -37,248 +48,145 @@ public partial class MainView : UserControl
             _websiteSupervisor.StateChanged += OnWebsiteStateChanged;
         }
 
-        Loaded += (_, _) =>
-        {
-            UpdateStateUI(_supervisor.CurrentState);
-            UpdateTunnelUI(_tunnelService.IsOnline);
-            if (_websiteSupervisor != null)
-            {
-                UpdateWebsiteUI(_websiteSupervisor.CurrentState);
-            }
-            RefreshErrorDisplay();
-        };
+        Loaded += (_, _) => RefreshAllUI();
     }
 
-    private void OnWebsiteStateChanged(ServerState state)
-    {
-        Dispatcher.Invoke(() => UpdateWebsiteUI(state));
-    }
+    private void OnWebsiteStateChanged(ServerState _) => Dispatcher.Invoke(RefreshAllUI);
+    private void OnTunnelOnlineChanged(bool _) => Dispatcher.Invoke(RefreshAllUI);
+    private void OnErrorLogged(string _) => Dispatcher.Invoke(RefreshErrorDisplay);
 
     private void OnStateChanged(ServerState state)
     {
-        Dispatcher.Invoke(() => UpdateStateUI(state));
-    }
-
-    private void OnTunnelOnlineChanged(bool isOnline)
-    {
-        Dispatcher.Invoke(() => UpdateTunnelUI(isOnline));
-    }
-
-    private void OnErrorLogged(string logLine)
-    {
-        Dispatcher.Invoke(RefreshErrorDisplay);
-    }
-
-    private void UpdateStateUI(ServerState state)
-    {
-        var runningBrush = (Brush)FindResource("StatusRunningBrush");
-        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
-        var stopActionBrush = (Brush)FindResource("ActionStopBrush");
-        var accentBrush = (Brush)FindResource("AccentBrush");
-        var primaryTextStyle = (Brush)FindResource("TextPrimaryBrush");
-        var secondaryTextStyle = (Brush)FindResource("TextSecondaryBrush");
-
-        var primaryBtnStyle = (Style)FindResource("PrimaryButtonStyle");
-        var stopBtnStyle = (Style)FindResource("StopButtonStyle");
-
-        var isRunning = state == ServerState.Running;
-        OpenBrowserButton.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
-        RestartServerButton.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
-
-        switch (state)
+        if (state is ServerState.Stopped or ServerState.Crashed)
         {
-            case ServerState.Running:
-                StatusDot.Fill = runningBrush;
-                StatusLabel.Text = "Status: Running";
-                StatusLabel.Foreground = primaryTextStyle;
-                ServerActionButton.Content = "Stop Server";
-                ServerActionButton.Style = stopBtnStyle;
-                ServerActionButton.IsEnabled = true;
-                RestartServerButton.IsEnabled = true;
-                break;
-
-            case ServerState.Starting:
-                StatusDot.Fill = accentBrush;
-                StatusLabel.Text = "Status: Starting...";
-                StatusLabel.Foreground = secondaryTextStyle;
-                ServerActionButton.Content = "Starting...";
-                ServerActionButton.IsEnabled = false;
-                break;
-
-            case ServerState.Stopping:
-                StatusDot.Fill = stoppedBrush;
-                StatusLabel.Text = "Status: Stopping...";
-                StatusLabel.Foreground = secondaryTextStyle;
-                ServerActionButton.Content = "Stopping...";
-                ServerActionButton.IsEnabled = false;
-                break;
-
-            case ServerState.Crashed:
-                StatusDot.Fill = stopActionBrush;
-                StatusLabel.Text = "Status: Crashed";
-                StatusLabel.Foreground = stopActionBrush;
-                ServerActionButton.Content = "Launch ElectroERP";
-                ServerActionButton.Style = primaryBtnStyle;
-                ServerActionButton.IsEnabled = true;
-                break;
-
-            case ServerState.Stopped:
-            default:
-                StatusDot.Fill = stoppedBrush;
-                StatusLabel.Text = "Status: Stopped";
-                StatusLabel.Foreground = secondaryTextStyle;
-                ServerActionButton.Content = "Launch ElectroERP";
-                ServerActionButton.Style = primaryBtnStyle;
-                ServerActionButton.IsEnabled = true;
-                break;
-        }
-    }
-
-    private void UpdateTunnelUI(bool isOnline)
-    {
-        var runningBrush = (Brush)FindResource("StatusRunningBrush");
-        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
-        var mutedBrush = (Brush)FindResource("TextMutedBrush");
-        var borderMutedBrush = (Brush)FindResource("BorderMutedBrush");
-
-        if (isOnline)
-        {
-            TunnelStatusDot.Fill = runningBrush;
-            TunnelStatusLabel.Text = $"Tunnel ({CloudflareTunnelService.TunnelName}): Online";
-            TunnelStatusLabel.Foreground = runningBrush;
-            OnlineTunnelButton.Content = "Stop Online";
-            OnlineTunnelButton.BorderBrush = runningBrush;
-        }
-        else
-        {
-            TunnelStatusDot.Fill = stoppedBrush;
-            TunnelStatusLabel.Text = $"Tunnel ({CloudflareTunnelService.TunnelName}): Offline";
-            TunnelStatusLabel.Foreground = mutedBrush;
-            OnlineTunnelButton.Content = "Go Online";
-            OnlineTunnelButton.BorderBrush = borderMutedBrush;
-        }
-    }
-
-    private void UpdateWebsiteUI(ServerState state)
-    {
-        var runningBrush = (Brush)FindResource("StatusRunningBrush");
-        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
-        var stopActionBrush = (Brush)FindResource("ActionStopBrush");
-        var accentBrush = (Brush)FindResource("AccentBrush");
-        var mutedBrush = (Brush)FindResource("TextMutedBrush");
-        var borderMutedBrush = (Brush)FindResource("BorderMutedBrush");
-        var port = _websiteSupervisor?.GetWebsitePort() ?? 3001;
-
-        var isRunning = state == ServerState.Running;
-        OpenWebsiteButton.Visibility = isRunning ? Visibility.Visible : Visibility.Collapsed;
-
-        switch (state)
-        {
-            case ServerState.Running:
-                WebsiteStatusDot.Fill = runningBrush;
-                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Running";
-                WebsiteStatusLabel.Foreground = runningBrush;
-                WebsiteActionButton.Content = "Stop Website";
-                WebsiteActionButton.BorderBrush = runningBrush;
-                WebsiteActionButton.IsEnabled = true;
-                break;
-
-            case ServerState.Starting:
-                WebsiteStatusDot.Fill = accentBrush;
-                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Starting...";
-                WebsiteStatusLabel.Foreground = mutedBrush;
-                WebsiteActionButton.Content = "Starting Website...";
-                WebsiteActionButton.IsEnabled = false;
-                break;
-
-            case ServerState.Stopping:
-                WebsiteStatusDot.Fill = stoppedBrush;
-                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Stopping...";
-                WebsiteStatusLabel.Foreground = mutedBrush;
-                WebsiteActionButton.Content = "Stopping Website...";
-                WebsiteActionButton.IsEnabled = false;
-                break;
-
-            case ServerState.Crashed:
-                WebsiteStatusDot.Fill = stopActionBrush;
-                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Crashed";
-                WebsiteStatusLabel.Foreground = stopActionBrush;
-                WebsiteActionButton.Content = "Launch Website";
-                WebsiteActionButton.BorderBrush = borderMutedBrush;
-                WebsiteActionButton.IsEnabled = true;
-                break;
-
-            case ServerState.Stopped:
-            default:
-                WebsiteStatusDot.Fill = stoppedBrush;
-                WebsiteStatusLabel.Text = $"Website (localhost:{port}): Stopped";
-                WebsiteStatusLabel.Foreground = mutedBrush;
-                WebsiteActionButton.Content = "Launch Website";
-                WebsiteActionButton.BorderBrush = borderMutedBrush;
-                WebsiteActionButton.IsEnabled = true;
-                break;
-        }
-    }
-
-    private void OnWebsiteActionClick(object sender, RoutedEventArgs e)
-    {
-        if (_websiteSupervisor == null) return;
-
-        var isRunning = _websiteSupervisor.CurrentState == ServerState.Running;
-        var prompt = isRunning
-            ? "Enter your 6-digit PIN to stop Website"
-            : "Enter your 6-digit PIN to launch Website";
-        var title = isRunning ? "Stop Website" : "Launch Website";
-
-        if (!PromptPin(prompt, title))
-        {
-            return;
-        }
-
-        if (isRunning)
-        {
-            _websiteSupervisor.StopWebsite();
-        }
-        else
-        {
-            var (success, error) = _websiteSupervisor.StartWebsite();
-            if (!success && !string.IsNullOrEmpty(error))
+            if (_websiteSupervisor?.CurrentState is ServerState.Running or ServerState.Starting)
             {
-                MessageBox.Show(error, "Website Startup Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+                _websiteSupervisor.StopWebsite();
+            }
+            if (_tunnelService.IsOnline)
+            {
+                _tunnelService.StopTunnel();
             }
         }
+        Dispatcher.Invoke(RefreshAllUI);
     }
 
-    private void OnOpenWebsiteClick(object sender, RoutedEventArgs e)
+    private void RefreshAllUI()
     {
-        try
+        var erpState = _supervisor.CurrentState;
+        var isErpRunning = erpState == ServerState.Running;
+        var isOnline = _tunnelService.IsOnline;
+        var websiteState = _websiteSupervisor?.CurrentState ?? ServerState.Stopped;
+
+        UpdateSummaryBar(erpState, isOnline);
+        UpdateErpCard(erpState);
+        UpdateOnlineCard(isOnline, isErpRunning);
+        UpdateWebsiteCard(websiteState, isErpRunning);
+        RefreshErrorDisplay();
+    }
+
+    private void UpdateSummaryBar(ServerState erpState, bool isOnline)
+    {
+        var runningBrush = (Brush)FindResource("StatusRunningBrush");
+        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
+        var stopActionBrush = (Brush)FindResource("ActionStopBrush");
+        var accentBrush = (Brush)FindResource("AccentBrush");
+
+        var (dotBrush, stateLabel) = erpState switch
         {
-            var port = _websiteSupervisor?.GetWebsitePort() ?? 3001;
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = $"http://localhost:{port}",
-                UseShellExecute = true
-            });
-        }
-        catch (Exception ex)
+            ServerState.Running => (runningBrush, "ElectroERP running"),
+            ServerState.Starting => (accentBrush, "ElectroERP starting"),
+            ServerState.Stopping => (stoppedBrush, "ElectroERP stopping"),
+            ServerState.Crashed => (stopActionBrush, "ElectroERP crashed"),
+            _ => (stoppedBrush, "ElectroERP stopped")
+        };
+
+        var onlineLabel = isOnline ? "Online" : "Offline";
+        SummaryStatusDot.Fill = dotBrush;
+        SummaryStatusText.Text = $"{stateLabel} · {onlineLabel} · {_appVersion}";
+        RestartAllButton.IsEnabled = erpState == ServerState.Running;
+    }
+
+    private void UpdateErpCard(ServerState state)
+    {
+        var runningBrush = (Brush)FindResource("StatusRunningBrush");
+        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
+        var stopActionBrush = (Brush)FindResource("ActionStopBrush");
+        var accentBrush = (Brush)FindResource("AccentBrush");
+        var primaryText = (Brush)FindResource("TextPrimaryBrush");
+        var secondaryText = (Brush)FindResource("TextSecondaryBrush");
+        var primaryStyle = (Style)FindResource("PrimaryButtonStyle");
+        var stopStyle = (Style)FindResource("StopButtonStyle");
+
+        switch (state)
         {
-            MessageBox.Show($"Failed to launch web browser: {ex.Message}", "Browser Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            case ServerState.Running:
+                ErpServerCard.UpdateCardState("Running", runningBrush, primaryText, "Stop", stopStyle, true, true, true);
+                break;
+            case ServerState.Starting:
+                ErpServerCard.UpdateCardState("Starting...", accentBrush, secondaryText, "Starting...", primaryStyle, false, false, false);
+                break;
+            case ServerState.Stopping:
+                ErpServerCard.UpdateCardState("Stopping...", stoppedBrush, secondaryText, "Stopping...", stopStyle, false, false, false);
+                break;
+            case ServerState.Crashed:
+                ErpServerCard.UpdateCardState("Crashed", stopActionBrush, stopActionBrush, "Launch", primaryStyle, true, false, false);
+                break;
+            default:
+                ErpServerCard.UpdateCardState("Stopped", stoppedBrush, secondaryText, "Launch", primaryStyle, true, false, false);
+                break;
         }
     }
 
-    private void OnOpenBrowserClick(object sender, RoutedEventArgs e)
+    private void UpdateOnlineCard(bool isOnline, bool isErpRunning)
     {
-        try
+        var runningBrush = (Brush)FindResource("StatusRunningBrush");
+        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
+        var primaryText = (Brush)FindResource("TextPrimaryBrush");
+        var secondaryText = (Brush)FindResource("TextSecondaryBrush");
+        var primaryStyle = (Style)FindResource("PrimaryButtonStyle");
+        var stopStyle = (Style)FindResource("StopButtonStyle");
+        var hint = isErpRunning ? "" : "Start the ERP server first";
+
+        if (isOnline && isErpRunning)
         {
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
-            {
-                FileName = "http://localhost:3000",
-                UseShellExecute = true
-            });
+            OnlineAccessCard.UpdateCardState("Connected", runningBrush, primaryText, "Go Offline", stopStyle, true, false, true, hint);
         }
-        catch (Exception ex)
+        else
         {
-            MessageBox.Show($"Failed to launch web browser: {ex.Message}", "Browser Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+            OnlineAccessCard.UpdateCardState("Offline", stoppedBrush, secondaryText, "Go Online", primaryStyle, isErpRunning, false, isErpRunning, hint);
+        }
+    }
+
+    private void UpdateWebsiteCard(ServerState state, bool isErpRunning)
+    {
+        var runningBrush = (Brush)FindResource("StatusRunningBrush");
+        var stoppedBrush = (Brush)FindResource("StatusStoppedBrush");
+        var stopActionBrush = (Brush)FindResource("ActionStopBrush");
+        var accentBrush = (Brush)FindResource("AccentBrush");
+        var primaryText = (Brush)FindResource("TextPrimaryBrush");
+        var secondaryText = (Brush)FindResource("TextSecondaryBrush");
+        var primaryStyle = (Style)FindResource("PrimaryButtonStyle");
+        var stopStyle = (Style)FindResource("StopButtonStyle");
+        var hint = isErpRunning ? "" : "Start the ERP server first";
+
+        switch (state)
+        {
+            case ServerState.Running:
+                WebsiteCard.UpdateCardState("Running", runningBrush, primaryText, "Stop", stopStyle, isErpRunning, false, isErpRunning, hint);
+                break;
+            case ServerState.Starting:
+                WebsiteCard.UpdateCardState("Starting...", accentBrush, secondaryText, "Starting...", primaryStyle, false, false, false, hint);
+                break;
+            case ServerState.Stopping:
+                WebsiteCard.UpdateCardState("Stopping...", stoppedBrush, secondaryText, "Stopping...", stopStyle, false, false, false, hint);
+                break;
+            case ServerState.Crashed:
+                WebsiteCard.UpdateCardState("Crashed", stopActionBrush, stopActionBrush, "Launch", primaryStyle, isErpRunning, false, false, hint);
+                break;
+            default:
+                WebsiteCard.UpdateCardState("Stopped", stoppedBrush, secondaryText, "Launch", primaryStyle, isErpRunning, false, false, hint);
+                break;
         }
     }
 
@@ -286,66 +194,111 @@ public partial class MainView : UserControl
     {
         var isRunning = _supervisor.CurrentState == ServerState.Running;
         var prompt = isRunning ? "Enter your 6-digit PIN to stop server" : "Enter your 6-digit PIN to launch server";
-        var title = isRunning ? "Stop ElectroERP" : "Launch ElectroERP";
-
-        if (!PromptPin(prompt, title))
-        {
-            return;
-        }
+        if (!PromptPin(prompt, isRunning ? "Stop ElectroERP" : "Launch ElectroERP")) return;
 
         if (isRunning)
         {
+            _websiteSupervisor?.StopWebsite();
+            _tunnelService.StopTunnel();
             _supervisor.StopServer();
         }
         else
         {
             var (success, error) = _supervisor.StartServer();
             if (!success && !string.IsNullOrEmpty(error))
-            {
                 MessageBox.Show(error, "Startup Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
         }
     }
 
     private void OnRestartServerClick(object sender, RoutedEventArgs e)
     {
-        if (!PromptPin("Enter your 6-digit PIN to restart server", "Restart ElectroERP"))
-        {
-            return;
-        }
+        if (!PromptPin("Enter your 6-digit PIN to restart server", "Restart ElectroERP")) return;
+        var (success, error) = _supervisor.RestartServer();
+        if (!success && !string.IsNullOrEmpty(error))
+            MessageBox.Show(error, "Restart Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+    }
+
+    private void OnRestartAllClick(object sender, RoutedEventArgs e)
+    {
+        if (!PromptPin("Enter your 6-digit PIN to restart running services", "Restart All Services")) return;
+
+        var wasWebsiteRunning = _websiteSupervisor?.CurrentState == ServerState.Running;
+        var wasTunnelOnline = _tunnelService.IsOnline;
+
+        if (wasWebsiteRunning) _websiteSupervisor?.StopWebsite();
+        if (wasTunnelOnline) _tunnelService.StopTunnel();
 
         var (success, error) = _supervisor.RestartServer();
         if (!success && !string.IsNullOrEmpty(error))
         {
             MessageBox.Show(error, "Restart Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+            return;
         }
+
+        if (wasWebsiteRunning) _websiteSupervisor?.StartWebsite();
+        if (wasTunnelOnline) _tunnelService.StartTunnel();
     }
 
     private void OnOnlineTunnelClick(object sender, RoutedEventArgs e)
     {
+        if (_supervisor.CurrentState != ServerState.Running) return;
         var isOnline = _tunnelService.IsOnline;
         var prompt = isOnline
             ? $"Enter your 6-digit PIN to disconnect tunnel '{CloudflareTunnelService.TunnelName}'"
             : $"Enter your 6-digit PIN to launch tunnel '{CloudflareTunnelService.TunnelName}'";
-        var title = isOnline ? "Stop Online Tunnel" : "Go Online";
+        if (!PromptPin(prompt, isOnline ? "Go Offline" : "Go Online")) return;
 
-        if (!PromptPin(prompt, title))
-        {
-            return;
-        }
-
-        if (isOnline)
-        {
-            _tunnelService.StopTunnel();
-        }
+        if (isOnline) _tunnelService.StopTunnel();
         else
         {
             var (success, error) = _tunnelService.StartTunnel();
             if (!success && !string.IsNullOrEmpty(error))
-            {
                 MessageBox.Show(error, "Cloudflare Tunnel Error", MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
         }
+    }
+
+    private void OnWebsiteActionClick(object sender, RoutedEventArgs e)
+    {
+        if (_websiteSupervisor == null || _supervisor.CurrentState != ServerState.Running) return;
+        var isRunning = _websiteSupervisor.CurrentState == ServerState.Running;
+        var prompt = isRunning ? "Enter your 6-digit PIN to stop Website" : "Enter your 6-digit PIN to launch Website";
+        if (!PromptPin(prompt, isRunning ? "Stop Website" : "Launch Website")) return;
+
+        if (isRunning) _websiteSupervisor.StopWebsite();
+        else
+        {
+            var (success, error) = _websiteSupervisor.StartWebsite();
+            if (!success && !string.IsNullOrEmpty(error))
+                MessageBox.Show(error, "Website Startup Failed", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnOpenBrowserClick(object sender, RoutedEventArgs e) => OpenUrl("http://localhost:3000");
+    private void OnOpenWebsiteClick(object sender, RoutedEventArgs e) => OpenUrl("http://localhost:3000/store");
+
+    private async void OnCopyOnlineUrlClick(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var url = _tunnelService.IsOnline
+                ? $"https://{CloudflareTunnelService.TunnelName}.electroerp.app"
+                : "http://localhost:3000";
+            System.Windows.Clipboard.SetText(url);
+            OnlineAccessCard.LinkText = "Copied! ✓";
+            await Task.Delay(1500);
+            OnlineAccessCard.LinkText = "Copy URL ⧉";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to copy URL: {ex.Message}", "Copy Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void OnToggleDiagnosticsClick(object sender, RoutedEventArgs e)
+    {
+        _isDiagnosticsExpanded = !_isDiagnosticsExpanded;
+        DiagnosticsChevron.Text = _isDiagnosticsExpanded ? "▾" : "▸";
+        DiagnosticsLogBorder.Visibility = _isDiagnosticsExpanded ? Visibility.Visible : Visibility.Collapsed;
     }
 
     private async void OnCopyErrorsClick(object sender, RoutedEventArgs e)
@@ -363,6 +316,18 @@ public partial class MainView : UserControl
         }
     }
 
+    private static void OpenUrl(string url)
+    {
+        try
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to launch web browser: {ex.Message}", "Browser Error", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
     private bool PromptPin(string prompt, string title)
     {
         var mainWindow = Window.GetWindow(this) as MainWindow;
@@ -374,8 +339,7 @@ public partial class MainView : UserControl
     private void RefreshErrorDisplay()
     {
         var recent = _errorLogService.GetRecentErrors();
-        ErrorCountLabel.Text = $"{recent.Count} errors today";
-
+        ErrorCountLabel.Text = $"Error diagnostics ({recent.Count} today)";
         if (recent.Count == 0)
         {
             LogOutput.Text = "No runtime errors recorded.";
